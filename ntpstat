@@ -1,0 +1,149 @@
+#!/bin/bash
+#
+# Print NTP synchronization status
+#
+# Copyright (C) 2016  Miroslav Lichvar <mlichvar@redhat.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+CHRONYC=("chronyc" "-n")
+NTPQ=("ntpq" "-c" "timeout 100" "-c" "raw")
+
+export LC_ALL=C
+
+parse_tracking_field() {
+    local tracking=$1 name=$2 field
+    field=$(echo "$tracking" | grep "^$name")
+    echo "${field#* : }"
+}
+
+get_chronyd_state() {
+    local output line disp delay
+    local leap source address stratum distance poll
+
+    output=$("${CHRONYC[@]}" tracking 2> /dev/null) || return 2
+
+    leap=$(parse_tracking_field "$output" "Leap status")
+    case "$leap" in
+        "Normal") leap="0";;
+        "Insert second") leap="1";;
+        "Delete second") leap="2";;
+        "Not synchronised") leap="3";;
+    esac
+
+    address=$(parse_tracking_field "$output" "Reference ID")
+    address=${address%)*}
+    address=${address#*(}
+
+    stratum=$(parse_tracking_field "$output" "Stratum")
+    delay=$(parse_tracking_field "$output" "Root delay")
+    disp=$(parse_tracking_field "$output" "Root distance")
+    distance=$(echo "$delay $disp" | \
+               awk '{ printf "%.0f", ($1 / 2.0 + $2) * 1e3 }')
+
+    if [ -n "$address" ]; then
+        line=$("${CHRONYC[@]}" sources 2> /dev/null | \
+            grep " $address ") || return 3
+        poll=$(echo "$line" | awk '{ print $4 }')
+
+        case "${line:0:1}" in
+            "*"|"=") source="NTP server";;
+            "#")     source="reference clock";;
+            *)       source="unknown source";;
+        esac
+    fi
+
+    echo "$leap,NTP server,$address,$stratum,$distance,$poll"
+}
+
+parse_rv_field() {
+    local rv=$1 name=$2 field
+    field=$(echo "$rv" | grep -o "$name=[^,]*")
+    echo "${field#*=}"
+}
+
+get_ntpd_state() {
+    local output syspeer_id disp delay
+    local leap source address stratum distance poll
+
+    output=$("${NTPQ[@]}" -c "rv 0" 2> /dev/null) || return 2
+    [[ $output == *"associd"*"status"* ]] || return 3
+
+    leap=$(parse_rv_field "$output" "leap")
+    source=$(parse_rv_field "$output" "status" | \
+        awk '{ print and(rshift(strtonum($1), 8), 0x3f) }')
+    case "$source" in
+        0) source="unspecified";;
+        1) source="atomic clock";;
+        2) source="VLF radio";;
+        3) source="HF radio";;
+        4) source="UHF radio";;
+        5) source="local net";;
+        6) source="NTP server";;
+        7) source="UDP/TIME";;
+        8) source="wristwatch";;
+        9) source="modem"};;
+        *) source="unknown source";;
+    esac
+
+    stratum=$(parse_rv_field "$output" "stratum")
+    delay=$(parse_rv_field "$output" "rootdelay")
+    disp=$(parse_rv_field "$output" "rootdisp")
+    distance=$(echo "$delay $disp" | awk '{ printf "%.0f", $1 / 2.0 + $2 }')
+
+    syspeer_id=$("${NTPQ[@]}" -c associations 2> /dev/null |\
+        grep 'sys\.peer' | awk '{ print $2 }') || return 4
+    output=$("${NTPQ[@]}" -c "rv $syspeer_id" 2> /dev/null) || return 5
+
+    if [ "$source" = "NTP server" ]; then
+        address=$(parse_rv_field "$output" "srcadr")
+    fi
+    poll=$(parse_rv_field "$output" "hpoll")
+
+    echo "$leap,$source,$address,$stratum,$distance,$poll"
+}
+
+
+if ! state=$(get_chronyd_state) && ! state=$(get_ntpd_state); then
+    echo "Unable to talk to NTP daemon. Is it running?" >&2
+    exit 2
+fi
+
+IFS=, read -r leap source address stratum distance poll <<< "$state"
+
+if [ "$leap" -ge 0 -a "$leap" -le 2 ]; then
+    printf "synchronised to %s" "$source"
+    if [ -n "$address" ]; then
+        printf " (%s)" "$address"
+    fi
+    if [ -n "$stratum" ]; then
+        printf " at stratum %d\n" "$stratum"
+    else
+        printf ", stratum unknown\n"
+    fi
+
+    if [ -n "$distance" ]; then
+        printf "   time correct to within %.0f ms\n" "$distance"
+    else
+        printf "accuracy unknown\n"
+    fi
+else
+    printf "unsynchronised\n"
+fi
+
+if [ -n "$poll" ]; then
+    printf "   polling server every %d s\n" "$[2**$poll]"
+else
+    printf "poll interval unknown\n"
+fi
