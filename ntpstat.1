@@ -1,0 +1,27 @@
+.TH NTPSTAT 1 "" "ntpstat"
+.SH NAME
+ntpstat \- Print NTP synchronisation status
+
+.SH SYNOPSIS
+.B ntpstat
+
+.SH DESCRIPTION
+\fBntpstat\fR is a script which prints a brief summary of the system clock's
+synchronisation status when the \fBntpd\fR or \fBchronyd\fR daemon is running.
+It prints the time source (NTP server or reference clock) to which the system
+clock is currently synchronised, its stratum, how often is the server polled,
+and the maximum error of the clock.
+
+If the time source becomes unreachable and there are no other sources that
+could be selected, the clock will still be considered to be synchronised, but
+the maximum error will be slowly increasing.
+
+\fBntpstat\fR exits with a status of 0 if the clock is synchronised, 1 if the
+clock is not synchronised, or 2 if the status could not be determined, e.g.
+when the daemon is not running.
+
+.SH SEE ALSO
+.BR ntpd (8),
+.BR ntpq (8),
+.BR chronyd (8),
+.BR chronyc (1)
