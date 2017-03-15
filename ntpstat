@@ -141,8 +141,10 @@ if [ "$leap" -ge 0 -a "$leap" -le 2 ]; then
     else
         printf "accuracy unknown\n"
     fi
+    status=0
 else
     printf "unsynchronised\n"
+    status=1
 fi
 
 if [ -n "$poll" ]; then
@@ -150,3 +152,5 @@ if [ -n "$poll" ]; then
 else
     printf "poll interval unknown\n"
 fi
+
+exit $status
