@@ -57,7 +57,9 @@ get_chronyd_state() {
 
     stratum=$(parse_tracking_field "$output" "Stratum")
     delay=$(parse_tracking_field "$output" "Root delay")
-    disp=$(parse_tracking_field "$output" "Root distance")
+    delay=${delay% seconds}
+    disp=$(parse_tracking_field "$output" "Root dispersion")
+    disp=${disp% seconds}
     distance=$(echo "$delay $disp" | \
                awk '{ printf "%.0f", ($1 / 2.0 + $2) * 1e3 }')
 
