@@ -60,8 +60,11 @@ get_chronyd_state() {
     delay=${delay% seconds}
     disp=$(parse_tracking_field "$output" "Root dispersion")
     disp=${disp% seconds}
-    distance=$(echo "$delay $disp" | \
-               awk '{ printf "%.0f", ($1 / 2.0 + $2) * 1e3 }')
+    offset=$(parse_tracking_field "$output" "System time")
+    offset=${offset% seconds*}
+
+    distance=$(echo "$delay $disp $offset" | \
+               awk '{ printf "%.0f", ($1 / 2.0 + $2 + $3) * 1e3 }')
 
     if [ -n "$address" ]; then
         line=$("${CHRONYC[@]}" sources 2> /dev/null | \
