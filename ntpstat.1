@@ -10,11 +10,13 @@ ntpstat \- Print NTP synchronisation status
 synchronisation status when the \fBntpd\fR or \fBchronyd\fR daemon is running.
 It prints the time source (NTP server or reference clock) to which the system
 clock is currently synchronised, its stratum, how often is the server polled,
-and the maximum error of the clock.
+and the maximum estimated error of the clock. The script uses the \fBntpq\fR or
+\fBchronyc\fR program to obtain the information from the daemon.
 
-If the time source becomes unreachable and there are no other sources that
-could be selected, the clock will still be considered to be synchronised, but
-the maximum error will be slowly increasing.
+Following the NTPv4 specification (RFC 5905), if the time source becomes
+unreachable and there are no other sources that could be selected, the status
+of the clock will still be \*(lqsynchronised\*(rq, but the maximum error will
+be slowly increasing.
 
 \fBntpstat\fR exits with a status of 0 if the clock is synchronised, 1 if the
 clock is not synchronised, or 2 if the status could not be determined, e.g.
