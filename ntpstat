@@ -107,7 +107,7 @@ get_ntpd_state() {
         6) source="NTP server";;
         7) source="UDP/TIME";;
         8) source="wristwatch";;
-        9) source="modem"};;
+        9) source="modem";;
         *) source="unknown source";;
     esac
 
