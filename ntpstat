@@ -129,10 +129,14 @@ get_ntpd_state() {
 }
 
 
-while getopts "h" opt; do
+max_distance=""
+while getopts "m:h" opt; do
     case $opt in
+        m)
+            max_distance=$OPTARG
+            ;;
         *)
-            echo "Usage: $0"
+            echo "Usage: $0 [-m MAXERROR]"
             exit 3
             ;;
     esac
@@ -157,11 +161,19 @@ if [ "$leap" -ge 0 -a "$leap" -le 2 ]; then
     fi
 
     if [ -n "$distance" ]; then
-        printf "   time correct to within %.0f ms\n" "$distance"
+        printf "   time correct to within %.0f ms" "$distance"
+        if [ -n "$max_distance" ] &&
+                echo "$distance $max_distance" | awk '{ exit $1 <= $2 }'; then
+            printf " (exceeded maximum of %s ms)\n" "$max_distance"
+            status=1
+        else
+            printf "\n"
+            status=0
+        fi
     else
         printf "accuracy unknown\n"
+        [ -n "$max_distance" ] && status=1 || status=0
     fi
-    status=0
 else
     printf "unsynchronised\n"
     status=1
