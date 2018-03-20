@@ -64,7 +64,7 @@ get_chronyd_state() {
     offset=${offset% seconds*}
 
     distance=$(echo "$delay $disp $offset" | \
-               awk '{ printf "%.0f", ($1 / 2.0 + $2 + $3) * 1e3 }')
+               awk '{ printf "%.3f", ($1 / 2.0 + $2 + $3) * 1e3 }')
 
     if [ -n "$address" ]; then
         line=$("${CHRONYC[@]}" sources 2> /dev/null | \
@@ -114,7 +114,7 @@ get_ntpd_state() {
     stratum=$(parse_rv_field "$output" "stratum")
     delay=$(parse_rv_field "$output" "rootdelay")
     disp=$(parse_rv_field "$output" "rootdisp")
-    distance=$(echo "$delay $disp" | awk '{ printf "%.0f", $1 / 2.0 + $2 }')
+    distance=$(echo "$delay $disp" | awk '{ printf "%.3f", $1 / 2.0 + $2 }')
 
     syspeer_id=$("${NTPQ[@]}" -c associations 2> /dev/null |\
         grep 'sys\.peer' | awk '{ print $2 }') || return 4
