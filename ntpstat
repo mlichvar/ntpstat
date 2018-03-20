@@ -129,6 +129,15 @@ get_ntpd_state() {
 }
 
 
+while getopts "h" opt; do
+    case $opt in
+        *)
+            echo "Usage: $0"
+            exit 3
+            ;;
+    esac
+done
+
 if ! state=$(get_chronyd_state) && ! state=$(get_ntpd_state); then
     echo "Unable to talk to NTP daemon. Is it running?" >&2
     exit 2
