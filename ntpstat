@@ -137,7 +137,7 @@ while getopts "m:h" opt; do
             ;;
         *)
             echo "Usage: $0 [-m MAXERROR]"
-            exit 3
+            [ "$opt" = "h" ] && exit 0 || exit 3
             ;;
     esac
 done
