@@ -149,7 +149,7 @@ fi
 
 IFS=, read -r leap source address stratum distance poll <<< "$state"
 
-if [ "$leap" -ge 0 -a "$leap" -le 2 ]; then
+if [ "$leap" -ge 0 ] && [ "$leap" -le 2 ]; then
     printf "synchronised to %s" "$source"
     if [ -n "$address" ]; then
         printf " (%s)" "$address"
@@ -180,7 +180,7 @@ else
 fi
 
 if [ -n "$poll" ]; then
-    printf "   polling server every %d s\n" "$[2**$poll]"
+    printf "   polling server every %d s\n" "$((2**poll))"
 else
     printf "poll interval unknown\n"
 fi
