@@ -1,33 +1,15 @@
-#!/bin/bash
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2016  Miroslav Lichvar <mlichvar@redhat.com>
+# Copyright (C) 2019  Kirill Lukonin <klukoninr@gmail.com>
 #
 # This is a shell script which prints the ntpd or chronyd synchronisation
 # status, using the ntpq or chronyc program. It emulates the original
 # ntpstat program written in C by G. Richard Keech, which implemented a
 # subset of the mode6 protocol supported by ntpd.
-#
-# Copyright (C) 2016  Miroslav Lichvar <mlichvar@redhat.com>
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be included
-# in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-CHRONYC=("chronyc" "-n")
-NTPQ=("ntpq" "-c" "timeout 100" "-c" "raw")
+DEFAULT_CHRONYC_PARAMS="-n"
+DEFAULT_NTPQ_PARAMS="-c timeout 100 -c raw"
 
 export LC_ALL=C
 
@@ -41,7 +23,7 @@ get_chronyd_state() {
     local output line disp delay
     local leap source address stratum distance poll
 
-    output=$("${CHRONYC[@]}" tracking 2> /dev/null) || return 2
+    output=$(chronyc "$DEFAULT_CHRONYC_PARAMS" tracking 2> /dev/null) || return 2
 
     leap=$(parse_tracking_field "$output" "Leap status")
     case "$leap" in
@@ -64,14 +46,14 @@ get_chronyd_state() {
     offset=${offset% seconds*}
 
     distance=$(echo "$delay $disp $offset" | \
-               awk '{ printf "%.3f", ($1 / 2.0 + $2 + $3) * 1e3 }')
+               awk '{ printf "%.3f", ($1 / 2.0 + $2 + $3) * 1e3 }')echo "${field#* : }"echo "${field#* : }"
 
     if [ -n "$address" ]; then
-        line=$("${CHRONYC[@]}" sources 2> /dev/null | \
+        line=$(chronyc "$DEFAULT_CHRONYC_PARAMS" sources 2> /dev/null | \
             grep " $address ") || return 3
         poll=$(echo "$line" | awk '{ print $4 }')
 
-        case "${line:0:1}" in
+        case $(echo "$line" | awk '{ string=substr($0, 1, 1); print string; }') in
             "*"|"=") source="NTP server";;
             "#")     source="reference clock";;
             *)       source="unknown source";;
@@ -82,7 +64,7 @@ get_chronyd_state() {
 }
 
 parse_rv_field() {
-    local rv=$1 name=$2 field
+    local rv="$1" name="$2" field
     field=$(echo "$rv" | grep -o "$name=[^,]*")
     echo "${field#*=}"
 }
@@ -91,8 +73,14 @@ get_ntpd_state() {
     local output syspeer_id disp delay
     local leap source address stratum distance poll
 
-    output=$("${NTPQ[@]}" -c "rv 0" 2> /dev/null) || return 2
-    [[ $output == *"associd"*"status"* ]] || return 3
+    output=$(ntpq "$DEFAULT_NTPQ_PARAMS" -c "rv 0" 2> /dev/null) || return 2
+    case "$output" in
+        *"associd"*"status"*)
+            true ;;
+        *)
+            return 3 ;;
+    esac                
+        
 
     leap=$(parse_rv_field "$output" "leap")
     source=$(parse_rv_field "$output" "status" | \
@@ -116,9 +104,9 @@ get_ntpd_state() {
     disp=$(parse_rv_field "$output" "rootdisp")
     distance=$(echo "$delay $disp" | awk '{ printf "%.3f", $1 / 2.0 + $2 }')
 
-    syspeer_id=$("${NTPQ[@]}" -c associations 2> /dev/null |\
+    syspeer_id=$(ntpq "$DEFAULT_NTPQ_PARAMS" -c associations 2> /dev/null |\
         grep 'sys\.peer' | awk '{ print $2 }') || return 4
-    output=$("${NTPQ[@]}" -c "rv $syspeer_id" 2> /dev/null) || return 5
+    output=$(ntpq "$DEFAULT_NTPQ_PARAMS" -c "rv $syspeer_id" 2> /dev/null) || return 5
 
     if [ "$source" = "NTP server" ]; then
         address=$(parse_rv_field "$output" "srcadr")
@@ -147,7 +135,9 @@ if ! state=$(get_chronyd_state) && ! state=$(get_ntpd_state); then
     exit 2
 fi
 
-IFS=, read -r leap source address stratum distance poll <<< "$state"
+printf "%s\n" "$state" > /tmp/ntpstat_state
+IFS=, read -r leap source address stratum distance poll < /tmp/ntpstat_state
+rm /tmp/ntpstat_state
 
 if [ "$leap" -ge 0 ] && [ "$leap" -le 2 ]; then
     printf "synchronised to %s" "$source"
@@ -180,9 +170,10 @@ else
 fi
 
 if [ -n "$poll" ]; then
-    printf "   polling server every %d s\n" "$((2**poll))"
+    printf "   polling server every %d s\n" "$(echo 2^"$poll" | bc)"
 else
     printf "poll interval unknown\n"
 fi
 
 exit $status
+ 
