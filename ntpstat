@@ -116,8 +116,7 @@ get_ntpd_state() {
     disp=$(parse_rv_field "$output" "rootdisp")
     distance=$(echo "$delay $disp" | awk '{ printf "%.3f", $1 / 2.0 + $2 }')
 
-    syspeer_id=$("${NTPQ[@]}" -c associations 2> /dev/null |\
-        grep 'sys\.peer' | awk '{ print $2 }') || return 4
+    syspeer_id=$(parse_rv_field "$output" "peer")
     output=$("${NTPQ[@]}" -c "rv $syspeer_id" 2> /dev/null) || return 5
 
     if [ "$source" = "NTP server" ]; then
