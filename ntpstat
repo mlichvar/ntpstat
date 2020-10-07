@@ -91,7 +91,7 @@ get_ntpd_state() {
     local output syspeer_id disp delay
     local leap source address stratum distance poll
 
-    output=$("${NTPQ[@]}" -c "rv 0" 2> /dev/null) || return 2
+    output=$("${NTPQ[@]}" -c "rv 0" ${ntp_server_address} 2> /dev/null) || return 2
     [[ $output == *"associd"*"status"* ]] || return 3
 
     leap=$(parse_rv_field "$output" "leap")
@@ -117,7 +117,7 @@ get_ntpd_state() {
     distance=$(echo "$delay $disp" | awk '{ printf "%.3f", $1 / 2.0 + $2 }')
 
     syspeer_id=$(parse_rv_field "$output" "peer")
-    output=$("${NTPQ[@]}" -c "rv $syspeer_id" 2> /dev/null) || return 5
+    output=$("${NTPQ[@]}" -c "rv $syspeer_id" ${ntp_server_address} 2> /dev/null) || return 5
 
     if [ "$source" = "NTP server" ]; then
         address=$(parse_rv_field "$output" "srcadr")
@@ -129,13 +129,18 @@ get_ntpd_state() {
 
 
 max_distance=""
-while getopts "m:h" opt; do
+ntp_server_address=""
+while getopts "m:s:h" opt; do
     case $opt in
         m)
             max_distance=$OPTARG
             ;;
+        s)
+            ntp_server_address=$OPTARG
+            CHRONYC+=("-h" "${OPTARG}" )
+            ;;
         *)
-            echo "Usage: $0 [-m MAXERROR]"
+            echo "Usage: $0 [-m MAXERROR] [-s SERVER_ADDRES]"
             [ "$opt" = "h" ] && exit 0 || exit 3
             ;;
     esac
