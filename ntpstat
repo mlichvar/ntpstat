@@ -129,13 +129,21 @@ get_ntpd_state() {
 
 
 max_distance=""
-while getopts "m:h" opt; do
+while getopts "m:h46" opt; do
     case $opt in
         m)
             max_distance=$OPTARG
             ;;
+        4)
+            CHRONYC+=("-4")
+            NTPQ+=("-4")
+            ;;
+        6)
+            CHRONYC+=("-6")
+            NTPQ+=("-6")
+            ;;
         *)
-            echo "Usage: $0 [-m MAXERROR]"
+            echo "Usage: $0 [-m MAXERROR] [-4|-6]"
             [ "$opt" = "h" ] && exit 0 || exit 3
             ;;
     esac
