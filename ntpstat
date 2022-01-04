@@ -99,9 +99,9 @@ get_ntpd_state() {
     done
 
     leap=$(parse_rv_field "$output" "leap")
-    source=$(parse_rv_field "$output" "status" | \
-        awk '{ print and(rshift(strtonum($1), 8), 0x3f) }')
-    case "$source" in
+    status=$(parse_rv_field "$output" "status")
+
+    case "$(((16#${status#0x} >> 8) & 0x3f))" in
         0) source="unspecified";;
         1) source="atomic clock";;
         2) source="VLF radio";;
