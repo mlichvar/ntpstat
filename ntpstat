@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # This is a shell script which prints the ntpd or chronyd synchronisation
 # status, using the ntpq or chronyc program. It emulates the original
